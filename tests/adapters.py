@@ -8,7 +8,44 @@ import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+from cs336_basics.bpe import BPE
+from cs336_basics.pretokenization_example import find_chunk_boundaries
+import regex as re
 
+# GPT-2 pre-tokenization pattern (module level for pickling)
+_BPE_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
+def _pre_tokenize(text: str, special_tokens: list[str]) -> dict[tuple[bytes], int]:
+    """Pre-tokenize text into word counts as tuples of bytes.
+    
+    First splits on special tokens to prevent merging across document boundaries,
+    then applies the GPT-2 regex pattern to each segment.
+    """
+    word_counts: dict[tuple[bytes], int] = {}
+    
+    # Split on special tokens first (if any)
+    if special_tokens:
+        # Build pattern: escape each token and join with |
+        split_pattern = "|".join(re.escape(token) for token in special_tokens)
+        segments = re.split(split_pattern, text)
+    else:
+        segments = [text]
+    
+    # Pre-tokenize each segment separately
+    for segment in segments:
+        for match in re.finditer(_BPE_PAT, segment):
+            word = match.group()
+            byte_tuple = tuple[bytes]([bytes([b]) for b in word.encode("utf-8")])
+            word_counts[byte_tuple] = word_counts.get(byte_tuple, 0) + 1
+    return word_counts
+
+def _process_chunk(args: tuple) -> dict[tuple[bytes], int]:
+    """Process a single chunk and return word counts."""
+    start, end, input_path, special_tokens = args
+    with open(input_path, "rb") as f:
+        f.seek(start)
+        chunk = f.read(end - start).decode("utf-8", errors="ignore")
+    return _pre_tokenize(chunk, special_tokens)
 
 def run_linear(
     d_in: int,
@@ -589,4 +626,32 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    import multiprocessing as mp
+    
+    # Get chunk boundaries
+    with open(input_path, "rb") as f:
+        num_processes = mp.cpu_count()
+        boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
+    
+    # Create list of (start, end, input_path, special_tokens) tuples
+    chunk_args = [(start, end, str(input_path), special_tokens) for start, end in zip(boundaries[:-1], boundaries[1:])]
+    
+    # Process chunks in parallel
+    with mp.Pool(num_processes) as pool:
+        results = pool.map(_process_chunk, chunk_args)
+    
+    # Merge word counts from all chunks
+    merged_counts: dict[tuple[bytes], int] = {}
+    for word_counts in results:
+        for word, count in word_counts.items():
+            merged_counts[word] = merged_counts.get(word, 0) + count
+    
+    # Train BPE by merging pairs until vocab_size is reached
+    bpe = BPE(vocab_size, special_tokens)
+    merges: list[tuple[bytes, bytes]] = []
+    
+    while len(bpe.vocab) < vocab_size and merged_counts:
+        merged_counts, best_pair = bpe.merge_pair(merged_counts)
+        merges.append(best_pair)
+            
+    return bpe.vocab, merges
