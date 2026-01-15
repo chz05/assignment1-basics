@@ -649,9 +649,10 @@ def run_train_bpe(
     # Train BPE by merging pairs until vocab_size is reached
     bpe = BPE(vocab_size, special_tokens)
     merges: list[tuple[bytes, bytes]] = []
-    
-    while len(bpe.vocab) < vocab_size and merged_counts:
-        merged_counts, best_pair = bpe.merge_pair(merged_counts)
+ 
+    # Merge pairs until vocab_size is reached
+    while len(bpe.vocab) < vocab_size:
+        _, best_pair = bpe.merge_pair(merged_counts)
         merges.append(best_pair)
             
     return bpe.vocab, merges
