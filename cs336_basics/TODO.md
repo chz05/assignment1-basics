@@ -1,12 +1,10 @@
-in bpe.py, focus on merge part.
+in tokenizer.py. work on the encode function.
 
-We need the three data structures in the self-> 
-    - pair_counts: dict[tuple[bytes, bytes], int]: Count frequency of all successive pairs
-    - pair_occur: dict[tuple[token, token], list[tuple[word_id, pos]]]: know which word and which position the pair occurs at
-    - word_counts: dict[tuple[bytes], int]: ex: (l, o , w): 5... Store each “word” as a token sequence with a frequency
 
-We need a function called first_merge_pair, it will create the value for the pair_counts, pair_occur, and word_counts.
+we need to do the following things:
 
-Another function called merge_pair. This one will only update the pair_counts, pair_occur and word_counts. It does not need to go through whole word_counts again.
+1. split the special tokens in text and pretokensize. We still need to keep it. For example text = "a good cat is a eat<|endoftext|>", we should get a ["a", " good", " cat", " is" " a" " eat" "<|endoftext|>"], also you should tell me which indexes are special token.
 
-How to update? For example: (l, o) has the highest frequency. We need to first find in pair_occur that what's the original word and what's the position. We will find its neighbohood like (w, lo), we also need to update them. Then update the paircounts and word_counts.
+2. we already done the pretokenize:
+   1. then we should apply merges. For each pretokensize one: such as " good" => we get (' ', 'g', 'o', 'o', 'd'), they will become bytes. Then for each bytes, it will combine with the successive => ' g', it will search inside merges to check whether it has a same pair. If original one will be replaced as ' g'. Then it will also check ' go' inside the merge. If no, it will search 'oo'. like that ... If this one is special token, we just skip it, and it will become a bytes.
+   2. after we get the merges one such as [' g', 'oo' ...], it should be become some ints by bytes_to_id variable.

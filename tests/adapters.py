@@ -10,6 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 from cs336_basics.bpe import BPE
 from cs336_basics.pretokenization_example import find_chunk_boundaries
+from cs336_basics.tokenizer import Tokenizer
 import regex as re
 
 # GPT-2 pre-tokenization pattern (module level for pickling)
@@ -596,7 +597,8 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    tokenizer = Tokenizer(vocab, merges, special_tokens)
+    return tokenizer
 
 
 def run_train_bpe(

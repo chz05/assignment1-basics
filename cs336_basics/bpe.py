@@ -53,7 +53,7 @@ class BPE:
             idx += 1
 
     # ---------------- merge init ----------------
-    def init_merge(self, word_counts: Dict[Tuple[bytes, ...], int]) -> None:
+    def init_merge(self, word_counts: Dict[Tuple[bytes], int]) -> None:
         """
         word_counts maps a "word" represented as a tuple of byte-tokens to an integer frequency.
         Example:
@@ -182,7 +182,7 @@ class BPE:
             self.pair_to_words.pop(best_pair, None)
 
     # ---------------- public API ----------------
-    def merge_pair(self, word_counts: Dict[Tuple[bytes, ...], int]) -> Tuple[Dict[Tuple[bytes, ...], int], Tuple[bytes, bytes]]:
+    def merge_pair(self, word_counts: Dict[Tuple[bytes], int]) -> Tuple[Dict[Tuple[bytes], int], Tuple[bytes, bytes]]:
         """
         Merge the current best pair into a new token, updating internal state.
 
@@ -197,9 +197,3 @@ class BPE:
         self._do_merge(best)
         return word_counts, best
 
-    # Optional: export current internal words back to a dict for debugging/tests
-    def export_word_counts(self) -> Dict[Tuple[bytes, ...], int]:
-        out: Dict[Tuple[bytes, ...], int] = {}
-        for toks, freq in zip(self.words, self.word_freqs):
-            out[tuple(toks)] = out.get(tuple(toks), 0) + freq
-        return out
