@@ -20,6 +20,7 @@ class Tokenizer:
         self.merges = list(merges)
         self.special_tokens = list(special_tokens) if special_tokens else []
         self.bytes_to_id = {v: k for k, v in self.vocab.items()}
+        self.merge_rank = {pair: i for i, pair in enumerate(self.merges)}
         # special tokens are already in vocab, so we can get the ids from the bytes_to_id dictionary
         self.special_bytes = {s: s.encode("utf-8") for s in self.special_tokens}
         self.special_ids = {s: self.bytes_to_id[self.special_bytes[s]] for s in self.special_tokens}
@@ -71,10 +72,30 @@ class Tokenizer:
         return result
 
     def _apply_merges(self, tokens: list[bytes]) -> list[bytes]:
-        """Apply BPE merges in order to a list of byte tokens."""
-        for a, b in self.merges:
-            if len(tokens) < 2:
+        """Apply BPE merges using merge rank (lowest rank merges first)."""
+        if len(tokens) < 2:
+            return tokens
+
+        def get_pairs(seq: list[bytes]) -> set[tuple[bytes, bytes]]:
+            return {(seq[i], seq[i + 1]) for i in range(len(seq) - 1)}
+
+        pairs = get_pairs(tokens)
+        while True:
+            # find best pair by rank
+            best = None
+            best_rank = None
+            for pair in pairs:
+                rank = self.merge_rank.get(pair)
+                if rank is None:
+                    continue
+                if best_rank is None or rank < best_rank:
+                    best_rank = rank
+                    best = pair
+
+            if best is None:
                 break
+
+            a, b = best
             merged: list[bytes] = []
             i = 0
             while i < len(tokens):
@@ -85,6 +106,10 @@ class Tokenizer:
                     merged.append(tokens[i])
                     i += 1
             tokens = merged
+            if len(tokens) < 2:
+                break
+            pairs = get_pairs(tokens)
+
         return tokens
 
     def encode(self, text: str) -> list[int]: 
