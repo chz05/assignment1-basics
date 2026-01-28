@@ -11,6 +11,7 @@ from torch import Tensor
 from cs336_basics.bpe import BPE
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 from cs336_basics.tokenizer import Tokenizer
+from cs336_basics.linear import Linear
 import regex as re
 
 # GPT-2 pre-tokenization pattern (module level for pickling)
@@ -66,8 +67,9 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    raise NotImplementedError
+    linear = Linear(d_in, d_out, device=in_features.device, dtype=in_features.dtype)
+    linear.load_state_dict({"weight": weights})
+    return linear(in_features)
 
 
 def run_embedding(
